@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Políbio</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f6f8;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    background-color: #1f2937;
+    color: white;
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.container {
+    max-width: 600px;
+    margin: 50px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+input[type="file"] {
+    margin: 20px 0;
+}
+
+button {
+    background-color: #1f2937;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+#status {
+    margin-top: 20px;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+Políbio
+</header>
+
+<div class="container">
+    <h2>Upload do PDF</h2>
+    <input type="file" id="pdfUpload" accept="application/pdf">
+    <br>
+    <button onclick="processPDF()">Processar e Gerar Excel</button>
+    <div id="status"></div>
+</div>
+
+<script>
+
+async function processPDF() {
+
+    const fileInput = document.getElementById('pdfUpload');
+    const status = document.getElementById('status');
+
+    if (!fileInput.files.length) {
+        alert("Selecione um PDF primeiro.");
+        return;
+    }
+
+    status.innerText = "Lendo PDF...";
+
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async function() {
+        const typedarray = new Uint8Array(this.result);
+        const pdf = await pdfjsLib.getDocument(typedarray).promise;
+
+        let fullText = "";
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            const strings = content.items.map(item => item.str);
+            fullText += strings.join(" ") + "\n";
+        }
+
+        // AQUI VAMOS DEFINIR OS CAMPOS QUE VOCÊ QUER EXTRAIR
+        // Por enquanto é um modelo simples
+
+        let dados = [
+            ["Texto Completo Extraído"],
+            [fullText]
+        ];
+
+        const ws = XLSX.utils.aoa_to_sheet(dados);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Dados");
+
+        XLSX.writeFile(wb, "resultado.xlsx");
+
+        status.innerText = "Excel gerado com sucesso.";
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+</script>
+
+</body>
+</html>
