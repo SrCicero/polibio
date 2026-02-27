@@ -6,6 +6,7 @@
 <title>Políbio</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
@@ -35,10 +36,6 @@ header {
     text-align: center;
 }
 
-input[type="file"] {
-    margin: 20px 0;
-}
-
 button {
     background-color: #1f2937;
     color: white;
@@ -47,10 +44,6 @@ button {
     cursor: pointer;
     border-radius: 4px;
     font-size: 16px;
-}
-
-button:hover {
-    opacity: 0.9;
 }
 
 #status {
@@ -67,10 +60,10 @@ Políbio
 </header>
 
 <div class="container">
-    <h2>Upload do PDF</h2>
+    <h2>Upload do PDF Escaneado</h2>
     <input type="file" id="pdfUpload" accept="application/pdf">
-    <br>
-    <button onclick="processPDF()">Processar e Gerar Excel</button>
+    <br><br>
+    <button onclick="processPDF()">Processar com OCR</button>
     <div id="status"></div>
 </div>
 
@@ -86,30 +79,41 @@ async function processPDF() {
         return;
     }
 
-    status.innerText = "Lendo PDF...";
+    status.innerText = "Convertendo PDF em imagem...";
 
     const file = fileInput.files[0];
     const reader = new FileReader();
 
     reader.onload = async function() {
+
         const typedarray = new Uint8Array(this.result);
         const pdf = await pdfjsLib.getDocument(typedarray).promise;
+        const page = await pdf.getPage(1);
 
-        let fullText = "";
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-        for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            const strings = content.items.map(item => item.str);
-            fullText += strings.join(" ") + "\n";
-        }
+        await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-        // AQUI VAMOS DEFINIR OS CAMPOS QUE VOCÊ QUER EXTRAIR
-        // Por enquanto é um modelo simples
+        status.innerText = "Executando OCR (isso pode levar alguns segundos)...";
 
+        const result = await Tesseract.recognize(
+            canvas,
+            'por',
+            { logger: m => console.log(m) }
+        );
+
+        const textoExtraido = result.data.text;
+
+        console.log(textoExtraido);
+
+        // Por enquanto vamos gerar Excel com o texto completo
         let dados = [
-            ["Texto Completo Extraído"],
-            [fullText]
+            ["Texto OCR Extraído"],
+            [textoExtraido]
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(dados);
@@ -118,7 +122,7 @@ async function processPDF() {
 
         XLSX.writeFile(wb, "resultado.xlsx");
 
-        status.innerText = "Excel gerado com sucesso.";
+        status.innerText = "OCR concluído e Excel gerado.";
     };
 
     reader.readAsArrayBuffer(file);
@@ -128,3 +132,4 @@ async function processPDF() {
 
 </body>
 </html>
+
