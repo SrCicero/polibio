@@ -88,29 +88,34 @@ async function processPDF() {
 
         const typedarray = new Uint8Array(this.result);
         const pdf = await pdfjsLib.getDocument(typedarray).promise;
-        const page = await pdf.getPage(1);
 
-        const viewport = page.getViewport({ scale: 2 });
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d");
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        let textoExtraido = "";
 
-        await page.render({ canvasContext: context, viewport: viewport }).promise;
+        for (let i = 1; i <= pdf.numPages; i++) {
 
-        status.innerText = "Executando OCR (isso pode levar alguns segundos)...";
+            const page = await pdf.getPage(i);
 
-        const result = await Tesseract.recognize(
-            canvas,
-            'por',
-            { logger: m => console.log(m) }
-        );
+            const viewport = page.getViewport({ scale: 3 }); // maior resolução
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
 
-        const textoExtraido = result.data.text;
+            await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+            status.innerText = "Executando OCR na página " + i + "... (aguarde)";
+
+            const result = await Tesseract.recognize(
+                canvas,
+                'eng', // inglês melhora documentos técnicos
+                { logger: m => console.log(m) }
+            );
+
+            textoExtraido += result.data.text + "\n";
+        }
 
         console.log(textoExtraido);
 
-        // Por enquanto vamos gerar Excel com o texto completo
         let dados = [
             ["Texto OCR Extraído"],
             [textoExtraido]
@@ -132,4 +137,3 @@ async function processPDF() {
 
 </body>
 </html>
-
